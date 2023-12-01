@@ -63,7 +63,7 @@ export const authRouter = ({app, pool})=> {
 
                 } else {
                     res.status(400).send({
-                        message: err.message
+                        message: 'Не вышло((('
                     });
                 }
 
