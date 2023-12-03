@@ -29,7 +29,7 @@ app.use(session({
 const port = process.env.PORT || 3000;
 
 
-app.use(bodyParser.json({limit: '100mb'}));
+app.use(bodyParser.json({limit: '500mb'}));
 app.use(cookieParser());
 
 export {app, port};
