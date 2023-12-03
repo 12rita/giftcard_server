@@ -153,7 +153,7 @@ export const actions = ({pool}) => {
     }
 
     const deleteMessage = ({messageId, res}) =>{
-        const deleteQuery = `insert into messages("isDeleted") values(true) where id = '${messageId}'`;
+        const deleteQuery = `UPDATE messages SET "isDeleted" = true where id = '${messageId}'`;
         pool.query(deleteQuery, (err) => {
             if (!err) {
                 res.status(200).send({
