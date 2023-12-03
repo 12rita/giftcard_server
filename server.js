@@ -61,4 +61,4 @@ app.post(ROUTES.MESSAGE_DELETE, (req, res) => {
 
 void pool.connect()
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+app.listen(port, 'localhost',() => console.log(`Listening on port ${port}`));
