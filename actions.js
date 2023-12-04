@@ -157,7 +157,7 @@ export const actions = ({pool}) => {
         pool.query(deleteQuery, (err) => {
             if (!err) {
                 res.status(200).send({
-                    message: "Message deleted"
+                    message: "Вы удалили фотки, но интернет всё помнит..."
                 });
             } else {
                 res.status(400).send({
