@@ -105,7 +105,7 @@ export const actions = ({pool}) => {
             })
 
             return Object.values(messagesGroupByOwnerAndDate).sort((a, b) => {
-                return new Date(a.date) - new Date(b.date);
+                return new Date(b.date) - new Date(a.date);
             })
 
         }).then(messages => {
