@@ -73,7 +73,7 @@ app.post(ROUTES.REACTION, (req, res) => {
 })
 
 app.post(ROUTES.MESSAGE_DELETE, (req, res) => {
-    if (!req.session.user.isAdmin || !req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const {messageId} = req.body;
     const query = `Select * from "messages"  where  id = '${messageId}'`;
     pool.query(query, (err, result) => {
