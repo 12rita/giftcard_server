@@ -23,7 +23,7 @@ export const actions = ({pool}) => {
         const {dateTime, country, description, mentions, files: pictures} = message;
 
 
-        const query = `Select * from "messages"  where  country = '${country}' AND date = '${dateTime}' AND owner_id = '${req.session.user.id}' AND isDeleted !== true`;
+        const query = `Select * from "messages"  where  country = '${country}' AND date = '${dateTime}' AND owner_id = '${req.session.user.id}' AND "isDeleted" !== true`;
 
         pool.query(query, (err, result) => {
             if (!err) {
