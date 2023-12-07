@@ -20,3 +20,4 @@ export const emailsWhitelist = ['12rita43@gmail.com',
     'k4mennn@gmail.com',
     'vmokin98@gmail.com',
     'nastya23232@mail.ru']
+

@@ -11,9 +11,29 @@ const helpers = actions({pool});
 
 app.get(ROUTES.GEOGRAPHY, (req, res) => {
 
-    pool.query(`Select count (distinct id) as total, "country" from "details" GROUP BY "country"`, (err, result) => {
+    pool.query(`Select "mentions", "country", "owner_id" from "details"`, (err, result) => {
         if (!err) {
-            res.send(result.rows);
+            const countries = {}
+            result.rows.forEach((row) => {
+                const {mentions, country, owner_id} = row;
+                if (!countries[country]) {
+                    countries[country] = {mentions: [owner_id]}
+                }
+                mentions?.split(',')?.forEach((mention) => {
+                    if (!countries[country].mentions.includes(mention)) {
+                        countries[country].mentions.push(mention)
+                    }
+                })
+
+            })
+
+            const resultCountries = Object.keys(countries).map((country) => {
+                return {
+                    country,
+                    total: countries[country].mentions.length
+                }
+            })
+            res.send(resultCountries);
         }
     });
     pool.end;
@@ -37,23 +57,23 @@ app.get(ROUTES.DETAILS, (req, res) => {
 
 
 app.post(ROUTES.MESSAGE_SAVE, (req, res) => {
-    if (!req.session.user  || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
-    const {dateTime, country, description, files: pictures} = req.body;
+    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    const {dateTime, country, description, files: pictures, mentions} = req.body;
 
-    helpers.saveMessage({message: {dateTime, country, description, files: pictures}, res, req})
+    helpers.saveMessage({message: {dateTime, country, description, mentions, files: pictures}, res, req})
 
 
 })
 
 app.post(ROUTES.REACTION, (req, res) => {
     if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
-    const {messageId, reaction} = req.body;
-    helpers.saveReaction({message_id: messageId, user_id: req.session.user.id, reaction, res})
+    const {reactions} = req.body;
+    helpers.saveReaction({reactions, user_id: req.session.user.id, res})
 
 })
 
 app.post(ROUTES.MESSAGE_DELETE, (req, res) => {
-    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    if (!req.session.user.isAdmin || !req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const {messageId} = req.body;
     const query = `Select * from "messages"  where  id = '${messageId}'`;
     pool.query(query, (err, result) => {

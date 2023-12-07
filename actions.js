@@ -20,7 +20,7 @@ export const actions = ({pool}) => {
 
 
     const saveMessage = ({message, res, req}) => {
-        const {dateTime, country, description, files: pictures} = message;
+        const {dateTime, country, description, mentions, files: pictures} = message;
 
 
         const query = `Select * from "messages"  where  country = '${country}' AND date = '${dateTime}' AND owner_id = '${req.session.user.id}'`;
@@ -28,7 +28,7 @@ export const actions = ({pool}) => {
         pool.query(query, (err, result) => {
             if (!err) {
                 if (result.rows.length) {
-                    const updateQuery = `UPDATE messages SET description='${description}' where id = '${result.rows[0].id}'`;
+                    const updateQuery = `UPDATE messages SET "description"='${description}' "mentions" = '${mentions}' where id = '${result.rows[0].id}'`;
                     pool.query(updateQuery, () => {
                         if (!err) {
 
@@ -42,8 +42,8 @@ export const actions = ({pool}) => {
                     })
 
                 } else {
-                    const insertQuery = `insert into messages(date, country, description, owner_id) 
-                       values('${dateTime}', '${country}', '${description}', '${req.session.user.id}') RETURNING id`;
+                    const insertQuery = `insert into messages(date, country, description, owner_id, mentions) 
+                       values('${dateTime}', '${country}', '${description}', '${req.session.user.id}', '${mentions}') RETURNING id`;
 
                     pool.query(insertQuery, (err, result) => {
                         if (!err) {
@@ -83,7 +83,8 @@ export const actions = ({pool}) => {
                     email,
                     base64,
                     fileName,
-                    picture
+                    picture,
+                    mentions
                 } = row;
 
 
@@ -96,6 +97,7 @@ export const actions = ({pool}) => {
                         email,
                         picture,
                         id,
+                        mentions,
                         isDeletable: owner_id === userId,
                         files: [{name: fileName, base64}]
                     };
@@ -104,9 +106,7 @@ export const actions = ({pool}) => {
                 }
             })
 
-            return Object.values(messagesGroupByOwnerAndDate).sort((a, b) => {
-                return new Date(b.date) - new Date(a.date);
-            })
+            return Object.values(messagesGroupByOwnerAndDate)
 
         }).then(messages => {
 
@@ -124,6 +124,11 @@ export const actions = ({pool}) => {
                     message.isLiked = liked;
                     message.isDisliked = disliked;
                 })
+                messages.sort((a, b) => {
+                    const [monthA, yearA] = a.date.split('-');
+                    const [monthB, yearB] = b.date.split('-');
+                    return  new Date(+yearB, +monthB) - new Date(+yearA, +monthA);
+                })
                 res.send(messages)
             })
 
@@ -134,22 +139,36 @@ export const actions = ({pool}) => {
         pool.end
     }
 
-    const saveReaction = ({message_id, user_id, reaction, res}) => {
-        const insertQuery = `insert into reactions(message_id, user_id, reaction) 
+    const saveReaction = ({res, user_id, reactions}) => {
+
+        // const savedFiles = pictures.map(item => ([item.name, item.base64, id]));
+        // const insertFiles = `insert into photos("fileName", base64, messageId) values %L`;
+        // pool.query(format(insertFiles, savedFiles), (err, result) => {
+        Promise.all(reactions.map(({message_id, reaction})=>{
+            const insertQuery = `insert into reactions(message_id, user_id, reaction) 
                        values('${message_id}', '${user_id}', '${reaction}')  ON CONFLICT (message_id, user_id) DO UPDATE SET reaction = '${reaction}'`;
 
-        pool.query(insertQuery, (err) => {
-            if (!err) {
+          return pool.query(insertQuery, (err) => {
+                if (!err) {
+                    //
+                    // res.status(200).send({
+                    //     message: "Reaction saved"
+                    // });
+                } else {
+                    res.status(400).send({
+                        message: err.message
+                    });
+                }
+            })
+        })).then(()=>{
+            res.status(200).send({
+                message: "Ваши сердечки сохранены"
+            });
+        }). catch(err => res.status(400).send({
+            message: err.message
+        }));
 
-                res.status(200).send({
-                    message: "Reaction saved"
-                });
-            } else {
-                res.status(400).send({
-                    message: err.message
-                });
-            }
-        })
+
     }
 
     const deleteMessage = ({messageId, res}) =>{
