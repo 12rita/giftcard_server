@@ -15,9 +15,9 @@ app.get(ROUTES.GEOGRAPHY, (req, res) => {
         if (!err) {
             const countries = {}
             result.rows.forEach((row) => {
-                const {mentions, country, owner_id} = row;
+                const {mentions, country} = row;
                 if (!countries[country]) {
-                    countries[country] = {mentions: [owner_id]}
+                    countries[country] = {mentions: []}
                 }
                 mentions?.split(',')?.forEach((mention) => {
                     if (!countries[country].mentions.includes(mention)) {
