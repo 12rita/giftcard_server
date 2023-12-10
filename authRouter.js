@@ -1,9 +1,12 @@
 import {ROUTES} from "./static/routes.js";
-import {OAuth2Client} from "google-auth-library";
+import pkg from 'google-auth-library';
+
+const {OAuth2Client} = pkg;
+
 import {emailsWhitelist} from "./static/emailsWhitelist.js";
 
 
-export const authRouter = ({app, pool})=> {
+export const authRouter = ({app, pool}) => {
     const authClient = new OAuth2Client(process.env.CLIENT_ID, process.env.CLIENT_SECRET,
         'postmessage');
 
@@ -35,10 +38,16 @@ export const authRouter = ({app, pool})=> {
                 if (!err) {
                     if (result.rows.length) {
                         // const {id, name, email} = result.rows[0];
-                        req.session.user = {id: result.rows[0].id, email, name, picture};
+                        req.session.user = {
+                            id: result.rows[0].id,
+                            email,
+                            name,
+                            picture,
+                            isAdmin: email === '12rita43@gmail.com'
+                        };
                         res.status(200)
 
-                        res.json({name, email, picture, isWhitelisted})
+                        res.json({name, email, picture, isWhitelisted, isAdmin: email === '12rita43@gmail.com'})
                     } else {
                         let insertQuery = `insert into users(name, email, picture)
                        values('${name}', '${email}', '${picture}') ON CONFLICT (email) DO NOTHING RETURNING id`;
@@ -47,10 +56,16 @@ export const authRouter = ({app, pool})=> {
 
                             if (!err && !req.session.user) {
 
-                                req.session.user = {id: result.rows[0].id, email, name, picture};
+                                req.session.user = {
+                                    id: result.rows[0].id,
+                                    email,
+                                    name,
+                                    picture,
+                                    isAdmin: email === '12rita43@gmail.com'
+                                };
 
                                 res.status(201)
-                                res.json({name, email, picture, isWhitelisted})
+                                res.json({name, email, picture, isWhitelisted, isAdmin: email === '12rita43@gmail.com'})
                             } else {
                                 res.status(400).send({
                                     message: err.message
