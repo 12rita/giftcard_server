@@ -8,4 +8,6 @@ export const ROUTES = {
     LOGOUT: '/api/logout',
     REACTION: '/api/reaction',
     MESSAGE_DELETE: '/api/message/delete',
+    DESCRIPTION_EDIT: '/api/description/edit',
+    MENTIONS_EDIT: '/api/mentions/edit'
 }

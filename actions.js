@@ -2,6 +2,29 @@ import format from "pg-format";
 
 
 export const actions = ({pool}) => {
+
+    const checkExist = ({messageId, res, req, callback, ...props })=>{
+        const query = `Select * from "messages"  where  id = '${messageId}'`;
+        pool.query(query, (err, result) => {
+            if (!err) {
+                if (result.rows.length === 0) {
+                    res.status(400).send({
+                        message: 'Нет такого сообщения!'
+                    });
+                } else {
+                    const user_id = result.rows[0]?.owner_id;
+                    if ((user_id !== req.session.user.id) && !req.session.user.isAdmin) {
+                        res.status(401).send({
+                            message: 'Нельзя портить чужие сообщение, ай-ай-ай!'
+                        });
+                    } else {
+                        callback({messageId, res, ...props})
+
+                    }
+                }
+            }
+        });
+    }
     const saveFiles = ({id, pictures, res}) => {
         const savedFiles = pictures.map(item => ([item.name, item.base64, id]));
         const insertFiles = `insert into photos("fileName", base64, messageId) values %L`;
@@ -186,5 +209,37 @@ export const actions = ({pool}) => {
         })
     }
 
-    return {saveFiles, saveMessage, getDetails, saveReaction, deleteMessage}
+    const editDescription = ({messageId, res, description}) =>{
+        const editQuery = `UPDATE messages SET "description" = '${description}' where id = '${messageId}'`;
+        pool.query(editQuery, (err) => {
+            if (!err) {
+                res.status(200).send({
+                    message: "Новое описание сохранено"
+                });
+            } else {
+                res.status(400).send({
+                    message: err.message
+                });
+            }
+        })
+    }
+
+    const editMentions = ({messageId, res, mentions}) =>{
+        const editQuery = `UPDATE messages SET "mentions" = '${mentions}' where id = '${messageId}'`;
+        pool.query(editQuery, (err) => {
+            if (!err) {
+                res.status(200).send({
+                    message: "Добавили кабэшников"
+                });
+            } else {
+                res.status(400).send({
+                    message: err.message
+                });
+            }
+        })
+    }
+
+
+
+    return {saveFiles, saveMessage, getDetails, saveReaction, deleteMessage, editDescription, editMentions, checkExist}
 }
