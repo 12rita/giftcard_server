@@ -41,6 +41,46 @@ app.get(ROUTES.GEOGRAPHY, (req, res) => {
 
 })
 
+app.get(ROUTES.STATISTICS, (req, res) => {
+    pool.query(`Select "country", "owner_id","name" from "details"`, (err, result) => {
+        if (!err) {
+            const countries = {}
+            const people = {};
+
+            result.rows.forEach(row=>{
+                const {owner_id, name, country} = row;
+                if (!countries[country]) {
+                    countries[country] = true
+                }
+                if (!people[owner_id]) {
+                    people[owner_id] = {name, countries: [country]}
+                }
+                else if (!people[owner_id].countries.includes(country)) {
+                    people[owner_id].countries.push(country)
+                }
+            })
+
+            const sorted = Object.keys(people).map(id=>{
+                return {
+                    id,
+                    name: people[id].name,
+                    countriesCount: people[id].countries.length
+                }
+            }).sort((a,b)=>b.countriesCount-a.countriesCount);
+
+            const maxCount = sorted[0].countriesCount;
+
+            const statistics = {
+                countriesCount: Object.keys(countries).length,
+                homeless: sorted.filter(el=>el.countriesCount === maxCount)
+            }
+
+            res.send(statistics);
+        }
+    });
+    pool.end;
+})
+
 app.get(ROUTES.DETAILS, (req, res) => {
     if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const country = req.query.country;
@@ -94,7 +134,7 @@ app.post(ROUTES.DESCRIPTION_EDIT, (req, res) => {
 app.post(ROUTES.MENTIONS_EDIT, (req, res) => {
     if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const {messageId, mentions} = req.body;
-    helpers.checkExist({messageId, res, req,callback: helpers.editMentions, mentions})
+    helpers.checkExist({messageId, res, req, callback: helpers.editMentions, mentions})
 
 
 })
