@@ -42,43 +42,7 @@ app.get(ROUTES.GEOGRAPHY, (req, res) => {
 })
 
 app.get(ROUTES.STATISTICS, (req, res) => {
-    pool.query(`Select "country", "owner_id","name" from "details"`, (err, result) => {
-        if (!err) {
-            const countries = {}
-            const people = {};
-
-            result.rows.forEach(row=>{
-                const {owner_id, name, country} = row;
-                if (!countries[country]) {
-                    countries[country] = true
-                }
-                if (!people[owner_id]) {
-                    people[owner_id] = {name, countries: [country]}
-                }
-                else if (!people[owner_id].countries.includes(country)) {
-                    people[owner_id].countries.push(country)
-                }
-            })
-
-            const sorted = Object.keys(people).map(id=>{
-                return {
-                    id,
-                    name: people[id].name,
-                    countriesCount: people[id].countries.length
-                }
-            }).sort((a,b)=>b.countriesCount-a.countriesCount);
-
-            const maxCount = sorted[0].countriesCount;
-
-            const statistics = {
-                countriesCount: Object.keys(countries).length,
-                homeless: sorted.filter(el=>el.countriesCount === maxCount)
-            }
-
-            res.send(statistics);
-        }
-    });
-    pool.end;
+  helpers.getStatistics({res});
 })
 
 app.get(ROUTES.DETAILS, (req, res) => {

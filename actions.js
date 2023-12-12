@@ -1,6 +1,7 @@
 import format from "pg-format";
 
 
+
 export const actions = ({pool}) => {
 
     const checkExist = ({messageId, res, req, callback, ...props })=>{
@@ -90,7 +91,56 @@ export const actions = ({pool}) => {
 
         pool.end
     }
+    const getStatistics = ({res})=>{
+        pool.query(`Select "country", "owner_id","name", "mentions" from "details"`, (err, result) => {
+            if (!err) {
+                const countries = {}
+                const people = {};
 
+                result.rows.forEach(row=>{
+                    const {country, mentions} = row;
+                    if (!countries[country]) {
+                        countries[country] = {mentions: []}
+                    }
+                    mentions?.split(',')?.forEach((mention) => {
+                        if (!countries[country].mentions.includes(mention)) {
+                            countries[country].mentions.push(mention)
+                        }
+                    })
+
+                })
+
+                Object.keys(countries).forEach(country=>{
+                    countries[country].mentions.forEach(name=>{
+                        if (!people[name]) {
+                            people[name] = {name, countries: []}
+                        }
+                        people[name].countries.push(country)
+
+                    })
+                })
+
+                const sorted = Object.keys(people).map(name=>{
+                    return {
+
+                        name,
+                        countriesCount: people[name].countries.length
+                    }
+                }).sort((a,b)=>b.countriesCount-a.countriesCount);
+
+                const maxCount = sorted[0].countriesCount;
+
+                const statistics = {
+                    countriesCount: Object.keys(countries).length,
+                    // countriesInfo: countries,
+                    homeless: sorted.filter(el=>el.countriesCount === maxCount)
+                }
+
+                res.send(statistics);
+            }
+        });
+        pool.end;
+    }
 
     const getDetails = ({country, res, userId}) => {
         void pool.query(`Select * from details WHERE country='${country}'`).then((result) => {
@@ -241,5 +291,5 @@ export const actions = ({pool}) => {
 
 
 
-    return {saveFiles, saveMessage, getDetails, saveReaction, deleteMessage, editDescription, editMentions, checkExist}
+    return {saveFiles, saveMessage, getDetails, saveReaction, deleteMessage, editDescription, editMentions, checkExist, getStatistics}
 }
