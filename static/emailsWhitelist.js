@@ -1,4 +1,5 @@
-export const emailsWhitelist = ['12rita43@gmail.com',
+export const emailsWhitelist = [
+    '12rita43@gmail.com',
     'gsa977@gmail.com',
     'nechaevolegiu@gmail.com',
     'gleb-kulagin@yandex.ru',
@@ -22,5 +23,5 @@ export const emailsWhitelist = ['12rita43@gmail.com',
     'zelenetckiy.a731@gmail.com',
     'nickolay.prud@gmail.com',
     'zastiralkin@gmail.com',
-    'nastya23232@mail.ru']
-
+    'nastya23232@mail.ru'
+]
