@@ -10,5 +10,6 @@ export const ROUTES = {
     MESSAGE_DELETE: '/api/message/delete',
     DESCRIPTION_EDIT: '/api/description/edit',
     MENTIONS_EDIT: '/api/mentions/edit',
-    STATISTICS: '/api/statistics'
+    STATISTICS: '/api/statistics',
+    YEARS: '/api/years',
 }

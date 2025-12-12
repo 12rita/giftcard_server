@@ -142,10 +142,14 @@ export const actions = ({pool}) => {
         pool.end;
     }
 
-    const getDetails = ({country, res, userId}) => {
+    const getDetails = ({country, res, userId, year}) => {
         void pool.query(`Select * from details WHERE country='${country}'`).then((result) => {
             const messagesGroupByOwnerAndDate = {};
-            result.rows.forEach(row => {
+            let rows = result.rows;
+            if (year) rows = rows.filter(({date}) => date.split('-')?.[1] === year);
+
+
+            rows.forEach(row => {
                 const {
                     id,
                     date,
