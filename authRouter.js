@@ -3,7 +3,7 @@ import pkg from 'google-auth-library';
 
 const {OAuth2Client} = pkg;
 
-import {emailsWhitelist} from "./static/emailsWhitelist.js";
+import {emailsWhitelist} from "./static/consts/emailsWhitelist.js";
 
 
 export const authRouter = ({app, pool}) => {

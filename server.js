@@ -4,11 +4,22 @@ import 'dotenv/config'
 import {authRouter} from "./authRouter.js";
 import {app, port} from "./static/appConfig.js";
 import {actions} from "./actions.js";
-import {emailsWhitelist} from "./static/emailsWhitelist.js";
+import {emailsWhitelist} from "./static/consts/emailsWhitelist.js";
 import {getGeography} from "./static/routes/geography.js";
+import TelegramBot from "node-telegram-bot-api";
+import {setupBotHandlers} from "./telegram/index.js";
+import {setupCountrySelection} from "./telegram/countrySelection.js";
 
 authRouter({app, pool});
 const helpers = actions({pool});
+
+export const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
+
+// Setup country selection functionality
+const countrySelection = setupCountrySelection(bot, pool);
+
+// Setup bot handlers
+setupBotHandlers(bot, pool, countrySelection);
 
 app.get(ROUTES.GEOGRAPHY, (req, res) => {
     getGeography(req, res, pool)
