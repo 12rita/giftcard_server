@@ -20,8 +20,8 @@ export const peopleSelect = (bot) => {
 
         // Refresh people keyboard
         try {
-            const people = mentionOptions.map(person => person.label);
-            const keyboard = createPeopleKeyboard(people, state.selectedPeople, 0);
+            // Use mentionOptions directly (with value and label), not just labels
+            const keyboard = createPeopleKeyboard(mentionOptions, state.selectedPeople, 0);
             const responseText = `👥 *Выберите людей на фото*\n\nВыбрано: ${state.selectedPeople.length}`;
 
             const msg = query.msg || query.message;
@@ -53,8 +53,8 @@ export const peopleSelect = (bot) => {
         const state = userStates.get(chatId) || {};
 
         try {
-            const people = mentionOptions.map(person => person.label);
-            const keyboard = createPeopleKeyboard(people, state.selectedPeople || [], page);
+            // Use mentionOptions directly (with value and label), not just labels
+            const keyboard = createPeopleKeyboard(mentionOptions, state.selectedPeople || [], page);
 
             const msg = query.msg || query.message;
             if (msg && msg.chat && msg.message_id) {

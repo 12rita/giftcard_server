@@ -3,10 +3,11 @@ import pkg from 'google-auth-library';
 
 const {OAuth2Client} = pkg;
 
-import {emailsWhitelist} from "./static/consts/emailsWhitelist.js";
+import {createWhitelistHelpers} from "./static/db/whitelistHelpers.js";
 
 
 export const authRouter = ({app, pool}) => {
+    const {isEmailWhitelisted, isEmailInWhitelist} = createWhitelistHelpers(pool);
     const authClient = new OAuth2Client(process.env.CLIENT_ID, process.env.CLIENT_SECRET,
         'postmessage');
 
@@ -33,7 +34,16 @@ export const authRouter = ({app, pool}) => {
         });
         if (ticket) {
             const {name, email, picture} = ticket.getPayload();
-            const isWhitelisted = emailsWhitelist.includes(email);
+            
+            // Check if email is in whitelist (can be added to users table)
+            const inWhitelist = await isEmailInWhitelist(email);
+            if (!inWhitelist) {
+                res.status(403).json({error: 'Ваш email не в списке разрешённых'});
+                return;
+            }
+
+            // Check if user already exists (all users in table are whitelisted)
+            const isWhitelisted = await isEmailWhitelisted(email);
             pool.query(`Select * from "users" where email = '${email}'`, (err, result) => {
                 if (!err) {
                     if (result.rows.length) {
@@ -54,7 +64,7 @@ export const authRouter = ({app, pool}) => {
 
                         pool.query(insertQuery, (err, result) => {
 
-                            if (!err && !req.session.user) {
+                            if (!err && result.rows.length > 0 && !req.session.user) {
 
                                 req.session.user = {
                                     id: result.rows[0].id,
@@ -65,7 +75,8 @@ export const authRouter = ({app, pool}) => {
                                 };
 
                                 res.status(201)
-                                res.json({name, email, picture, isWhitelisted, isAdmin: email === '12rita43@gmail.com'})
+                                // User was just created, so they're whitelisted (only created if in whitelist)
+                                res.json({name, email, picture, isWhitelisted: true, isAdmin: email === '12rita43@gmail.com'})
                             } else {
                                 res.status(400).send({
                                     message: err.message
@@ -98,7 +109,7 @@ export const authRouter = ({app, pool}) => {
     app.get(ROUTES.USER, async (req, res) => {
             if (req.session.user) {
                 const {name, email, picture} = req.session.user;
-                const isWhitelisted = emailsWhitelist.includes(email);
+                const isWhitelisted = await isEmailWhitelisted(email);
 
                 res.status(200).send({email, name, picture, isWhitelisted}) // User is authenticated, continue to next middleware
             } else {

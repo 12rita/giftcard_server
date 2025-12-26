@@ -8,34 +8,69 @@ export function setupGetForm(bot, pool) {
     // In-memory store for user states (country selection)
     const userStates = new Map();
 
+    // Initialize database operations first (needed by phoneSelect)
+    const {saveForm, getUserIdFromPhone, getPhoneNumber, isPhoneInWhitelist, addUserIfWhitelisted} = createFormDb(pool);
+
     // Initialize selectors
-    const {handlePhoneInput, showPhoneRequest} = phoneSelect(bot);
+    const {handlePhoneInput, showPhoneRequest} = phoneSelect(bot, {isPhoneInWhitelist, addUserIfWhitelisted});
     const {handleCountrySelect, handleCountryPage, showCountrySelection} = countrySearch(bot);
     const {handleYearSelect} = yearSelect(bot);
     const {handleMonthSelect} = monthSelect(bot);
-    const {handlePhotosSelect, handlePhotosUpload} = photosSelect(bot);
+    
+    
+    // Initialize photo utilities (needed by photosSelect)
+    const {downloadPhotoAsBase64} = createPhotoUtils(bot);
+    
+    const {handlePhotosSelect, handlePhotosUpload} = photosSelect(bot, {downloadPhotoAsBase64});
     const {handleCommentSkip, handleCommentSelect} = commentSelect(bot);
     const {handlePeoplePagination, handlePeopleSelect} = peopleSelect(bot);
 
-    // Initialize database operations
-    const {saveForm, getUserIdFromPhone} = createFormDb(pool);
+    // Override showCountrySelection to first ask for phone
+    const originalShowCountrySelection = showCountrySelection;
+    const showCountrySelectionWithPhone = async (chatId) => {
+        const state = userStates.get(chatId) || {};
+        
+        // Check if phone is in current state
+        if (state.phoneNumber) {
+            await originalShowCountrySelection(chatId);
+            return;
+        }
 
-    // Initialize photo utilities
-    const {downloadPhotoAsBase64} = createPhotoUtils(bot);
+        // Try to get phone number from database
+        try {
+            const savedPhoneNumber = await getPhoneNumber(chatId);
+            if (savedPhoneNumber) {
+                // Phone number found in database, use it
+                state.phoneNumber = savedPhoneNumber;
+                userStates.set(chatId, state);
+                await originalShowCountrySelection(chatId);
+            } else {
+                // No phone number found, ask for it
+                state.step = 'phone_input';
+                userStates.set(chatId, state);
+                await showPhoneRequest(chatId);
+            }
+        } catch (error) {
+            console.error('Error getting phone number from database:', error);
+            // On error, ask for phone number
+            state.step = 'phone_input';
+            userStates.set(chatId, state);
+            await showPhoneRequest(chatId);
+        }
+    };
 
-    // Initialize final submission handler
-    const {handleFinalSubmission} = createFinalSubmissionHandler(
+    // Initialize final submission handler (after showCountrySelectionWithPhone is defined)
+    const {handleFinalSubmission, handleAddAnother} = createFinalSubmissionHandler(
         bot,
         userStates,
-        {saveForm, getUserIdFromPhone},
-        {downloadPhotoAsBase64}
+        {saveForm, getUserIdFromPhone, showCountrySelection: showCountrySelectionWithPhone, getPhoneNumber}
     );
 
     // Setup message handlers
     const {setupMessageHandler, setupCallbackHandler} = createMessageHandlers(
         bot,
         userStates,
-        {handlePhotosUpload, handleCommentSelect, handleFinalSubmission, handlePhoneInput, showCountrySelection}
+        {handlePhotosUpload, handleCommentSelect, handleFinalSubmission, handlePhoneInput, showCountrySelection: showCountrySelectionWithPhone, handleAddAnother}
     );
 
     setupMessageHandler();
@@ -49,22 +84,6 @@ export function setupGetForm(bot, pool) {
         handlePeopleSelect,
         handlePeoplePagination
     });
-
-    // Override showCountrySelection to first ask for phone
-    const originalShowCountrySelection = showCountrySelection;
-    const showCountrySelectionWithPhone = async (chatId) => {
-        const state = userStates.get(chatId);
-        // If phone is already set, show country selection directly
-        if (state?.phoneNumber) {
-            await originalShowCountrySelection(chatId);
-        } else {
-            // Otherwise, ask for phone first
-            state.step = 'phone_input';
-            userStates.set(chatId, state);
-            await showPhoneRequest(chatId);
-        }
-    };
-
 
     // Function to get selected country for a user
     function getSelectedCountry(chatId) {

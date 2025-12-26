@@ -1,4 +1,4 @@
-import countriesData from './countries_ru.json';
+import { countriesData } from './countries_ru.js';
 
 // Extract countries with codes
 export const COUNTRIES_WITH_CODES = Object.entries(countriesData.Names).map(([code, name]) => ({

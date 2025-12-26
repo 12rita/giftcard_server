@@ -1,9 +1,23 @@
-export const createMessageHandlers = (bot, userStates, {handlePhotosUpload, handleCommentSelect, handleFinalSubmission, handlePhoneInput, showCountrySelection}) => {
-    // Message handler for photos and comments
+export const createMessageHandlers = (bot, userStates, {handlePhotosUpload, handleCommentSelect, handleFinalSubmission, handlePhoneInput, showCountrySelection, handleAddAnother}) => {
+    // Message handler for photos, comments, and phone
     const setupMessageHandler = () => {
         bot.on('message', async (msg) => {
             const chatId = msg.chat.id;
             const state = userStates.get(chatId);
+
+            // Handle contact sharing (phone number) - check this first
+            if (msg.contact && (!state || state.step === 'phone_input')) {
+                // User shared contact, handle phone input
+                if (!state) {
+                    userStates.set(chatId, { step: 'phone_input' });
+                }
+                try {
+                    await handlePhoneInput({msg, userStates, chatId, showCountrySelection});
+                } catch (error) {
+                    console.error('Error handling contact:', error);
+                }
+                return;
+            }
 
             if (!state || !state.step) {
                 return; // Not in our flow
@@ -67,6 +81,13 @@ export const createMessageHandlers = (bot, userStates, {handlePhotosUpload, hand
                         show_alert: false
                     });
                     await handleFinalSubmission(chatId, query);
+                } else if (data === 'add_another') {
+                    // Handle "add another" button
+                    await bot.answerCallbackQuery(query.id, {
+                        text: 'Начинаем загрузку новой страны',
+                        show_alert: false
+                    });
+                    await handleAddAnother(chatId);
                 }
             } catch (error) {
                 console.error('Error handling callback query:', error);

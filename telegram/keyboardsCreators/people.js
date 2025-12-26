@@ -1,4 +1,6 @@
 // Create people selection keyboard
+// people should be mentionOptions array (objects with value and label)
+// selectedPeople should be array of values (not labels)
 export const createPeopleKeyboard = (people, selectedPeople = [], page = 0, itemsPerPage = 10) => {
     const start = page * itemsPerPage;
     const end = start + itemsPerPage;
@@ -11,17 +13,17 @@ export const createPeopleKeyboard = (people, selectedPeople = [], page = 0, item
     for (let i = 0; i < pagePeople.length; i += 2) {
         const row = [];
         const person1 = pagePeople[i];
-        const isSelected1 = selectedPeople.includes(person1);
+        const isSelected1 = selectedPeople.includes(person1.value);
         row.push({
-            text: `${isSelected1 ? '✅ ' : ''}${person1}`,
-            callback_data: `person_toggle_${person1.replace(/[|\\]/g, '\\$&')}`
+            text: `${isSelected1 ? '✅ ' : ''}${person1.label}`,
+            callback_data: `person_toggle_${person1.value.replace(/[|\\]/g, '\\$&')}`
         });
         if (pagePeople[i + 1]) {
             const person2 = pagePeople[i + 1];
-            const isSelected2 = selectedPeople.includes(person2);
+            const isSelected2 = selectedPeople.includes(person2.value);
             row.push({
-                text: `${isSelected2 ? '✅ ' : ''}${person2}`,
-                callback_data: `person_toggle_${person2.replace(/[|\\]/g, '\\$&')}`
+                text: `${isSelected2 ? '✅ ' : ''}${person2.label}`,
+                callback_data: `person_toggle_${person2.value.replace(/[|\\]/g, '\\$&')}`
             });
         }
         keyboard.push(row);

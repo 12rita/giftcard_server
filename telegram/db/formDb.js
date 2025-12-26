@@ -1,6 +1,5 @@
 import format from "pg-format";
-import {phoneToEmailMap} from "../../static/consts/phoneToEmail.js";
-import {emailsWhitelist} from "../../static/consts/emailsWhitelist.js";
+import {isPhoneInWhitelist as checkPhoneInWhitelist} from "../../static/db/whitelistHelpers.js";
 
 export const createFormDb = (pool) => {
     const saveFiles = async ({id, pictures, onSuccess, onError}) => {
@@ -82,6 +81,7 @@ export const createFormDb = (pool) => {
     };
 
     // Helper function to get user ID from Telegram phone number
+    // All users in the users table are considered whitelisted
     const getUserIdFromPhone = async (phoneNumber) => {
         return new Promise((resolve, reject) => {
             if (!phoneNumber) {
@@ -92,29 +92,16 @@ export const createFormDb = (pool) => {
             // Normalize phone number (remove +, spaces, etc.)
             const normalizedPhone = phoneNumber.replace(/[+\s-()]/g, '');
             
-            // Get email from phone mapping
-            const email = phoneToEmailMap[normalizedPhone] || phoneToEmailMap[phoneNumber];
-            
-            if (!email) {
-                reject(new Error(`Phone number ${phoneNumber} not found in mapping`));
-                return;
-            }
-
-            // Check if email is whitelisted
-            if (!emailsWhitelist.includes(email)) {
-                reject(new Error(`Email ${email} is not whitelisted`));
-                return;
-            }
-
-            // Get user ID from database
-            pool.query(`SELECT id FROM users WHERE email = $1`, [email], (err, result) => {
+            // Get user from database by phone number (if they exist, they're whitelisted)
+            const query = `SELECT id FROM users WHERE phone_number = $1`;
+            pool.query(query, [normalizedPhone], (err, result) => {
                 if (err) {
                     reject(err);
                     return;
                 }
                 
                 if (result.rows.length === 0) {
-                    reject(new Error(`User with email ${email} not found in database`));
+                    reject(new Error(`Phone number ${phoneNumber} not found in database`));
                     return;
                 }
                 
@@ -123,10 +110,129 @@ export const createFormDb = (pool) => {
         });
     };
 
+    // Check if phone number is in whitelist (uses cached whitelist)
+    const isPhoneInWhitelist = checkPhoneInWhitelist;
+
+    // Add user to users table if they're in whitelist (used when phone is verified)
+    const addUserIfWhitelisted = async (phoneNumber) => {
+        return new Promise((resolve, reject) => {
+            if (!phoneNumber) {
+                reject(new Error('Phone number not provided'));
+                return;
+            }
+
+            // Normalize phone number
+            const normalizedPhone = phoneNumber.replace(/[+\s-()]/g, '');
+
+            // First, get email from whitelist table
+            const whitelistQuery = `SELECT email FROM whitelist WHERE phone_number = $1`;
+            pool.query(whitelistQuery, [normalizedPhone], (err, whitelistResult) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                if (whitelistResult.rows.length === 0) {
+                    reject(new Error(`Phone number ${phoneNumber} not in whitelist`));
+                    return;
+                }
+
+                const email = whitelistResult.rows[0].email;
+
+                // Check if user already exists
+                const checkQuery = `SELECT id, phone_number FROM users WHERE email = $1 OR phone_number = $2`;
+                pool.query(checkQuery, [email, normalizedPhone], (err, userResult) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    if (userResult.rows.length > 0) {
+                        // User exists, update phone number if needed
+                        const user = userResult.rows[0];
+                        if (!user.phone_number) {
+                            const updateQuery = `UPDATE users SET phone_number = $1 WHERE id = $2 RETURNING id`;
+                            pool.query(updateQuery, [normalizedPhone, user.id], (updateErr) => {
+                                if (updateErr) {
+                                    reject(updateErr);
+                                    return;
+                                }
+                                resolve(user.id);
+                            });
+                        } else {
+                            resolve(user.id);
+                        }
+                    } else {
+                        // User doesn't exist, create new user (only if in whitelist)
+                        const insertQuery = `INSERT INTO users (email, phone_number) VALUES ($1, $2) RETURNING id`;
+                        pool.query(insertQuery, [email, normalizedPhone], (insertErr, insertResult) => {
+                            if (insertErr) {
+                                reject(insertErr);
+                                return;
+                            }
+                            resolve(insertResult.rows[0].id);
+                        });
+                    }
+                });
+            });
+        });
+    };
+
+    // Check if email exists in users table (all users in table are whitelisted)
+    const isEmailWhitelisted = async (email) => {
+        return new Promise((resolve, reject) => {
+            if (!email) {
+                resolve(false);
+                return;
+            }
+
+            const query = `SELECT id FROM users WHERE email = $1`;
+            pool.query(query, [email], (err, result) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                
+                // If user exists in table, they're whitelisted
+                resolve(result.rows.length > 0);
+            });
+        });
+    };
+
+    // Get phone number for a Telegram chatId from users table
+    const getPhoneNumber = async (chatId) => {
+        return new Promise((resolve, reject) => {
+            if (!chatId) {
+                reject(new Error('chatId is required'));
+                return;
+            }
+
+            const query = `SELECT phone_number FROM users WHERE telegram_chat_id = $1`;
+
+            pool.query(query, [chatId], (err, result) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                
+                if (result.rows.length === 0) {
+                    resolve(null); // No phone number found
+                    return;
+                }
+                
+                resolve(result.rows[0].phone_number);
+            });
+        });
+    };
+
     return {
         saveFiles,
         saveForm,
-        getUserIdFromPhone
+        getUserIdFromPhone,
+        getPhoneNumber,
+        isPhoneInWhitelist,
+        addUserIfWhitelisted
     };
 };
+
 

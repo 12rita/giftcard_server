@@ -1,4 +1,4 @@
-export const photosSelect = (bot) =>{
+export const photosSelect = (bot, {downloadPhotoAsBase64}) =>{
     const handlePhotosUpload = async ({state, userStates, chatId, msg}) =>{
         // Handle photo upload
         if (msg.photo && msg.photo.length > 0) {
@@ -6,11 +6,21 @@ export const photosSelect = (bot) =>{
             const photo = msg.photo[msg.photo.length - 1];
             const fileId = photo.file_id;
 
-            if (!state.photos) {
-                state.photos = [];
+            // Download photo immediately to avoid file_id expiration
+            try {
+                const photoData = await downloadPhotoAsBase64(fileId);
+                
+                if (!state.photos) {
+                    state.photos = [];
+                }
+                // Store the downloaded photo data (base64) instead of file_id
+                state.photos.push(photoData);
+                userStates.set(chatId, state);
+            } catch (error) {
+                console.error(`Error downloading photo immediately:`, error);
+                await bot.sendMessage(chatId, '❌ Ошибка при загрузке фото. Попробуйте отправить фото снова.');
+                return;
             }
-            state.photos.push(fileId);
-            userStates.set(chatId, state);
 
             // Clear previous timeout if exists
             if (state.photoTimeout) {

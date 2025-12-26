@@ -3,7 +3,8 @@ import {mentionOptions} from "../../static/consts/people.js";
 
 export const commentSelect = (bot)=>{
     const getAllPeople = () => {
-        return mentionOptions.map(person => person.label);
+        // Return mentionOptions directly (with value and label)
+        return mentionOptions;
     }
 
     const handleCommentSelect = async ({msg, userStates, state, chatId, handleFinalSubmission})=>{

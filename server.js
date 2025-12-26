@@ -4,11 +4,19 @@ import 'dotenv/config'
 import {authRouter} from "./authRouter.js";
 import {app, port} from "./static/appConfig.js";
 import {actions} from "./actions.js";
-import {emailsWhitelist} from "./static/consts/emailsWhitelist.js";
+import {createWhitelistHelpers} from "./static/db/whitelistHelpers.js";
 import {getGeography} from "./static/routes/geography.js";
 import TelegramBot from "node-telegram-bot-api";
 import {setupBotHandlers} from "./telegram/index.js";
 import {setupGetForm} from "./telegram/getForm.js";
+
+// Initialize whitelist helpers (loads cache at startup)
+const {isEmailWhitelisted, loadWhitelistCache} = createWhitelistHelpers(pool);
+
+// Refresh whitelist cache periodically (every 5 minutes) or reload on startup
+loadWhitelistCache().catch(err => {
+    console.error('Error loading whitelist cache on startup:', err);
+});
 
 authRouter({app, pool});
 const helpers = actions({pool});
@@ -16,7 +24,7 @@ const helpers = actions({pool});
 export const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 // Setup country selection functionality
-const countrySelection = setupGetForm(bot, helpers.saveMessage);
+const countrySelection = setupGetForm(bot, pool);
 
 // Setup bot handlers
 setupBotHandlers(bot, pool, countrySelection);
@@ -47,8 +55,10 @@ app.get(ROUTES.YEARS, (req, res) => {
 })
 
 
-app.get(ROUTES.DETAILS, (req, res) => {
-    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+app.get(ROUTES.DETAILS, async (req, res) => {
+    if (!req.session.user) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    const whitelisted = await isEmailWhitelisted(req.session.user.email);
+    if (!whitelisted) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const country = req.query.country;
     const year = req.query.year;
     if (!country) {
@@ -63,29 +73,37 @@ app.get(ROUTES.DETAILS, (req, res) => {
 })
 
 
-app.post(ROUTES.MESSAGE_SAVE, (req, res) => {
-    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+app.post(ROUTES.MESSAGE_SAVE, async (req, res) => {
+    if (!req.session.user) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    const whitelisted = await isEmailWhitelisted(req.session.user.email);
+    if (!whitelisted) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const {dateTime, country, description, files: pictures, mentions} = req.body;
 
     helpers.saveMessage({message: {dateTime, country, description, mentions, files: pictures}, res, req})
 
 })
 
-app.post(ROUTES.REACTION, (req, res) => {
-    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+app.post(ROUTES.REACTION, async (req, res) => {
+    if (!req.session.user) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    const whitelisted = await isEmailWhitelisted(req.session.user.email);
+    if (!whitelisted) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const {reactions} = req.body;
     helpers.saveReaction({reactions, user_id: req.session.user.id, res})
 
 })
 
-app.post(ROUTES.MESSAGE_DELETE, (req, res) => {
-    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+app.post(ROUTES.MESSAGE_DELETE, async (req, res) => {
+    if (!req.session.user) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    const whitelisted = await isEmailWhitelisted(req.session.user.email);
+    if (!whitelisted) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const {messageId} = req.body;
     helpers.checkExist({messageId, res, req, callback: helpers.deleteMessage})
 })
 
-app.post(ROUTES.DESCRIPTION_EDIT, (req, res) => {
-    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+app.post(ROUTES.DESCRIPTION_EDIT, async (req, res) => {
+    if (!req.session.user) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    const whitelisted = await isEmailWhitelisted(req.session.user.email);
+    if (!whitelisted) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const {messageId, description} = req.body;
     helpers.checkExist({messageId, res, req, callback: helpers.editDescription, description})
 
@@ -93,8 +111,10 @@ app.post(ROUTES.DESCRIPTION_EDIT, (req, res) => {
 });
 
 
-app.post(ROUTES.MENTIONS_EDIT, (req, res) => {
-    if (!req.session.user || !emailsWhitelist.includes(req.session.user.email)) return res.status(401).send({message: 'Не признаю вас в гриме'});
+app.post(ROUTES.MENTIONS_EDIT, async (req, res) => {
+    if (!req.session.user) return res.status(401).send({message: 'Не признаю вас в гриме'});
+    const whitelisted = await isEmailWhitelisted(req.session.user.email);
+    if (!whitelisted) return res.status(401).send({message: 'Не признаю вас в гриме'});
     const {messageId, mentions} = req.body;
     helpers.checkExist({messageId, res, req, callback: helpers.editMentions, mentions})
 
